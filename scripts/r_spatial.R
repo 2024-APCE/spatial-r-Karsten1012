@@ -328,25 +328,162 @@ landform_map_sa<-ggplot() +
   ggspatial::annotation_scale(location="bl",width_hint=0.2)
 landform_map_sa
 
-# create 500 random points in our study area
+r<-terra::rast("./_my_data/coreprotectedarea/CoreProtectedAreas.tif") 
+CoreProtectedAreas_sa <- r |> #  replace NA by 0
+  is.na() |>
+  terra::ifel(0,r) 
 
+CoreProtectedAreas_map_sa<-ggplot() +
+  tidyterra::geom_spatraster(data=as.factor(CoreProtectedAreas_sa)) +
+  scale_fill_manual(values=c("grey","lightgreen"),
+                    labels=c("no","yes")) +
+  tidyterra::geom_spatvector(data=protected_areas,
+                             fill=NA,linewidth=0.5) +
+  tidyterra::geom_spatvector(data=studyarea,
+                             fill=NA,linewidth=0.5,col="red") +
+  tidyterra::geom_spatvector(data=lakes,
+                             fill="lightblue",linewidth=0.5) +
+  tidyterra::geom_spatvector(data=rivers,
+                             col="blue",linewidth=0.5) +
+  labs(title="Core protected areas") +
+  coord_sf(xlimits,ylimits,expand=F,
+           datum = sf::st_crs(32736)) +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  ggspatial::annotation_scale(location="bl",width_hint=0.2)
+CoreProtectedAreas_map_sa
+
+landform_map_sa+cec_map_sa+burnfreq_map_sa+dist2river_map_sa+rainfall_map_sa+elevation_map_sa+woody_map_sa
+
+# create 500 random points in our study area
+set.seed(123)
+rpoints <- terra::spatSample(studyarea, size = 250, 
+                             method = "random")
 
 
 # and add them to the previous map
 
-# make distance to river map
+rpoints_map_sa<-ggplot() +
+  tidyterra::geom_spatvector(data=rpoints, size=0.5) +
+  tidyterra::geom_spatvector(data=protected_areas,
+                             fill=NA,linewidth=0.5) +
+  tidyterra::geom_spatvector(data=studyarea,
+                             fill=NA,linewidth=0.5,col="red") +
+  tidyterra::geom_spatvector(data=lakes,
+                             fill="lightblue",linewidth=0.5) +
+  tidyterra::geom_spatvector(data=rivers,
+                             col="blue",linewidth=0.5) +
+  tidyterra::geom_spatvector(data=,
+                             col="blue",linewidth=0.5) +
+  labs(title="250 random points") +
+  coord_sf(xlimits,ylimits,expand=F,
+           datum = sf::st_crs(32736)) +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank()) +
+  ggspatial::annotation_scale(location="bl",width_hint=0.2)
+rpoints_map_sa
 
-
-
-### put all maps together
-
-
+all_maps_sa<-woody_map_sa +dist2river_map_sa + elevation_map_sa + rainfall_map_sa + 
+  cec_map_sa + burnfreq_map_sa + landform_map_sa +rpoints_map_sa +
+  patchwork::plot_layout(ncol=3)
+all_maps_sa
 
 # extract your the values of the different raster layers to the points
 
+woody_points <- terra::extract(woodybiom_sa, rpoints) |> 
+  as_tibble() |>
+  dplyr::rename(woody=TBA_gam_utm36s)
+woody_points
+dist2river_points <- terra::extract(dist2river_sa, rpoints) |> 
+  as_tibble() |>
+  dplyr::rename(dist2river=distance)
+dist2river_points
+elevation_points <- terra::extract(elevation, rpoints) |> 
+  as_tibble() 
+elevation_points
+rainfall_points <- terra::extract(rainfall_sa, rpoints) |> 
+  as_tibble() |> 
+  dplyr::rename(rainfall=CHIRPS_MeanAnnualRainfall)
+rainfall_points
+cec_points <- terra::extract(cec_sa, rpoints) |> 
+  as_tibble() |>
+  dplyr::rename(cec='cec_5-15cm_mean')
+cec_points
+burnfreq_points <- terra::extract(burnfreq_sa, rpoints) |> 
+  as_tibble() |>
+  dplyr::rename(burnfreq=burned_sum)
+burnfreq_points
+landform_points <- terra::extract(landform_sa, rpoints) |> 
+  as_tibble() |>
+  dplyr::rename(hills=remapped)
+landform_points
 
-# make long format
+# merge the different variable into a single table
+# use woody biomass as the last variable
+pointdata<-cbind(dist2river_points[,2],elevation_points[,2],
+                 rainfall_points[,2], 
+                 cec_points[,2],burnfreq_points[,2],
+                 landform_points[,2],woody_points[,2]) |>
+  as_tibble()
+pointdata
+
+#pointdata<-pointdata{complete.cases(pointdata),} = getting rid of NA values
 
 # plot how woody cover is predicted by different variables
 
+# plot how woody cover is predicted by different variables
+# Create a correlation panel plot
+library(psych)
+psych::pairs.panels(
+  pointdata ,
+  method = "pearson",     # Correlation method (use "spearman" for rank correlation)
+  hist.col = "lightblue",  # Color for histograms
+  density = TRUE,          # Add density plots
+  ellipses = F,         # Add correlation ellipses
+  lm = TRUE,                # Add linear regression lines
+  stars=T
+)
+
+names(pointdata)
+pointdata_long<-pivot_longer(data=pointdata,
+                             cols = dist2river:hills, # all except woody
+                             names_to ="pred_var",
+                             values_to = "pred_val")
+
+pointdata_long
+
+ggplot(data=pointdata_long, mapping=aes(x=pred_val,y=woody,group=pred_var)) +
+  geom_point() +
+  geom_smooth() +
+  ylim(0,40) +
+  facet_wrap(~pred_var,scales="free") 
+
+
+# do a pca
+# Load the vegan package
+library(vegan)
+# Perform PCA using the rda() function
+pca_result <- vegan::rda(pointdata,
+                         scale = TRUE)
+# Display a summary of the PCA
+summary(pca_result)
+
+# Plot the PCA
+plot(pca_result, scaling = 2, type="n", xlab="",ylab="")  # Use scaling = 1 for distance preservation, scaling = 2 for correlations
+# Add points for samples
+points(pca_result, display = "sites", pch=pointdata$CorProtAr+1, col = pointdata$hills+1, bg = "blue", cex = 1)
+# Add arrows for variables
+arrows(0, 0, scores(pca_result, display = "species")[, 1], scores(pca_result, display = "species")[, 2], 
+       length = 0.1, col = "red")
+# Label the variables with arrows
+text(scores(pca_result, display = "species")[, 1], scores(pca_result, display = "species")[, 2], 
+     labels = colnames(pointdata), col = "red", cex = 0.8, pos = 4)
+# Add axis labels and a title
+title(main = "PCA Biplot")
+xlabel <- paste("PC1 (", round(pca_result$CA$eig[1] / sum(pca_result$CA$eig) * 100, 1), "%)", sep = "")
+ylabel <- paste("PC2 (", round(pca_result$CA$eig[2] / sum(pca_result$CA$eig) * 100, 1), "%)", sep = "")
+title(xlab=xlabel)
+title(ylab=ylabel)
+# add contours for woody cover
+vegan::ordisurf(pca_result, pointdata$woody, add = TRUE, col = "green4")
 
