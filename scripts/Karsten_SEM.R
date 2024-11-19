@@ -58,7 +58,10 @@ summary(Woody_fit, fit.measures = T, standardized = T, rsquare = T)
 
 Woody_model1 <- 'woody ~ dist2river + elevation + rainfall + hills + cec + burnfreq 
                   cec~burnfreq+rainfall
-                  burnfreq~rainfall+dist2river'
+                  dist2river~rainfall
+                  burnfreq~rainfall+dist2river
+                  rainfall~elevation
+                  elevation~hills'
 Woody_model1
 Woody_fit1 <- lavaan::sem(Woody_model, data=SEMstd)
 
