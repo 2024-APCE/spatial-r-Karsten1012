@@ -427,6 +427,8 @@ pointdata<-cbind(dist2river_points[,2],elevation_points[,2],
   as_tibble()
 pointdata
 
+getwd()
+readr::write_csv(pointdata,"pointdata.csv")
 #pointdata<-pointdata{complete.cases(pointdata),} = getting rid of NA values
 
 # plot how woody cover is predicted by different variables

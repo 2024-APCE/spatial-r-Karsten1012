@@ -22,6 +22,7 @@ SEMdata<-read_csv("https://docs.google.com/spreadsheets/d/e/2PACX-1vQlvRxkFscmAS
 SEMdata
 names(SEMdata)
   
+
 # standardize all variables to mean 0 and standard deviation 1
 SEMstd <- SEMdata |>
   mutate_all(~(scale(.) %>% as.vector)) |>
@@ -30,9 +31,9 @@ SEMstd
 # note that this does not affect the relations between the variables, only the scales  
 
 # make a pairs panel to inspect linearity of relations and expected normality of residuals
-psych::pairs.panels(SEMdata %>% select(dist2river,elevation,rainfall,cec,burnfreq,hills,woody ),
+psych::pairs.panels(SEMdata %>% dplyr::select(dist2river,elevation,rainfall,cec,burnfreq,hills,woody ),
                     stars = T, ellipses = F)
-psych::pairs.panels(SEMstd %>% select(dist2river,elevation,rainfall,cec,burnfreq,hills,woody),
+psych::pairs.panels(SEMstd %>% dplyr::select(dist2river,elevation,rainfall,cec,burnfreq,hills,woody),
                     stars = T, ellipses = F)
 
 # analyse the model (response ~ predictors) with a multiple regression approach 
@@ -55,29 +56,12 @@ summary(Woody_fit, fit.measures = T, standardized = T, rsquare = T)
 # goodness of fit (should be >0.9): CFI and TLI
 # badness of fit: ( should be <0.1): RMSEA, SRMR
 
-<<<<<<< HEAD
-# visualise the model
-=======
-  >>>>>>> 8a237fe2317acaad42b557f15ab08d729405ba65
-
-# also explore the models as shown in fig 5b and 5c of the Anderson2007 paper
-# so repeat the model for leaf P content
-
-psych::pairs.panels(Anderson2007 %>% select(RES_LHU,BIOMASS,FIRE_FRQ,NMS,
-                                            LF_P),
-                    stars = T, ellipses = F)
-psych::pairs.panels(Anderson2007std %>% select(RES_LHU,BIOMASS,FIRE_FRQ,NMS,
-                                               LF_P),
-                    stars = T, ellipses = F)
-
-multreg_std<-lm(LF_P~RES_LHU+BIOMASS+FIRE_FRQ+NMS, data=Anderson2007std)
-summary(multreg_std)
-
-Leaf_P_model <- 'LF_P ~ RES_LHU + BIOMASS + FIRE_FRQ + NMS 
-                  BIOMASS~FIRE_FRQ+RES_LHU
-                  NMS~FIRE_FRQ+RES_LHU'
-Leaf_P_model
-leaf_P_fit <- lavaan::sem(Leaf_P_model, data=Anderson2007std)
+Woody_model1 <- 'woody ~ dist2river + elevation + rainfall + hills + cec + burnfreq 
+                  cec~burnfreq+rainfall
+                  burnfreq~rainfall+dist2river'
+Woody_model1
+Woody_fit1 <- lavaan::sem(Woody_model, data=SEMstd)
 
 # show the model results
-summary(leaf_P_fit, fit.measures = T, standardized = T, rsquare = T)
+summary(Woody_fit1, fit.measures = T, standardized = T, rsquare = T)
+# goodness of fit (should be >0.9): CFI and TLI
